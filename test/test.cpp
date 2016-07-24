@@ -1,5 +1,6 @@
 #include <SharedPtr.h>
 #include <stdio.h>
+#include <vector>
 
 using namespace nonatomic;
 
@@ -37,6 +38,12 @@ public:
 
 int main(int, char**)
 {
+    // {
+    //     SharedPtr<A> s1(new A(200));
+    //     SharedPtr<A>& s2 = s1;
+    //     printf("base: %d\n", s1->a);
+    //     printf("ref: %d\n", s2->a);
+    // }
     WeakPtr<A> w1;
     {
         A* aa = new A(10);
@@ -67,6 +74,23 @@ int main(int, char**)
     {
         SharedPtr<B> sb1(new B(20));
         printf("sb1: %d\n", sb1->b);
+    }
+
+    {
+        std::vector<SharedPtr<A> > ptrs;
+        {
+            SharedPtrPoolScope<A> pool = SharedPtr<A>::makePool(5);
+            ptrs.reserve(5);
+            for (int i = 0; i < 5; ++i) {
+                A* a = new(pool.mem(i)) A(i + 100);
+                ptrs.push_back(SharedPtr<A>(pool, i, a));
+            }
+            printf("pool count (should be 6?) %u\n", pool.useCount());
+        }
+        for (int i = 0; i < 5; ++i) {
+            SharedPtr<A> ptr = ptrs[i];
+            printf("vector ptr %d: %d\n", i, ptr->a);
+        }
     }
 
     return 0;
