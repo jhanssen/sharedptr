@@ -10,6 +10,14 @@ template<typename T>
 class WeakPtr;
 
 template<typename T>
+class EnableSharedFromThis;
+
+template<typename T>
+void _enableSharedFromThis(EnableSharedFromThis<T>* that, void* data);
+template<typename T>
+void _enableSharedFromThis(...) { }
+
+template<typename T>
 class SharedPtr
 {
 public:
@@ -51,7 +59,9 @@ private:
     Data* data;
 
     friend class WeakPtr<T>;
+    friend class EnableSharedFromThis<T>;
     friend class SharedPtrPool;
+    friend void _enableSharedFromThis<T>(EnableSharedFromThis<T>* that, void* data);
 };
 
 template<typename T>
@@ -72,8 +82,18 @@ public:
 private:
     void clear();
 
+    void assign(typename SharedPtr<T>::Data* data);
+
     typename SharedPtr<T>::Data* data;
+
+    friend class EnableSharedFromThis<T>;
 };
+
+template<typename T>
+void _enableSharedFromThis(EnableSharedFromThis<T>* that, void* data)
+{
+    that->assign(static_cast<typename SharedPtr<T>::Data*>(data));
+}
 
 template<typename T>
 inline SharedPtr<T>::SharedPtr()
@@ -85,6 +105,7 @@ template<typename T>
 SharedPtr<T>::SharedPtr(T* ptr)
     : data(new Data(1, 0, ptr))
 {
+    _enableSharedFromThis<T>(ptr, data);
 }
 
 template<typename T>
@@ -93,6 +114,7 @@ inline SharedPtr<T>::SharedPtr(const SharedPtr<T>& copy)
 {
     ++data->sharedCount;
 }
+
 template<typename T>
 inline SharedPtr<T>::SharedPtr(Data* data)
     : data(data)
@@ -117,13 +139,16 @@ SharedPtr<T>& SharedPtr<T>::operator=(const SharedPtr<T>& copy)
 template<typename T>
 inline void SharedPtr<T>::clear()
 {
-    if (!--data->sharedCount) {
-        delete data->ptr;
-        data->ptr = 0;
-        if (!data->weakCount)
-            delete data;
-    }
+    Data* d = data;
     data = 0;
+
+    if (!--d->sharedCount) {
+        T* ptr = d->ptr;
+        d->ptr = 0;
+        delete ptr;
+        if (!d->weakCount)
+            delete d;
+    }
 }
 
 template<typename T>
@@ -131,6 +156,7 @@ inline void SharedPtr<T>::reset(T* ptr)
 {
     clear();
     data = new Data(1, 0, ptr);
+    _enableSharedFromThis<T>(ptr, data);
 }
 
 template<typename T>
@@ -161,15 +187,26 @@ inline WeakPtr<T>::~WeakPtr()
 }
 
 template<typename T>
+inline void WeakPtr<T>::assign(typename SharedPtr<T>::Data* d)
+{
+    clear();
+    data = d;
+    ++data->weakCount;
+}
+
+template<typename T>
 inline void WeakPtr<T>::clear()
 {
-    if (data && !data->sharedCount) {
-        assert(!data->ptr);
-        if (!--data->weakCount) {
-            delete data;
+    if (data) {
+        typename SharedPtr<T>::Data* d = data;
+        data = 0;
+        if (!d->sharedCount) {
+            assert(!d->ptr);
+            if (!--d->weakCount) {
+                delete d;
+            }
         }
     }
-    data = 0;
 }
 
 template<typename T>
@@ -205,6 +242,39 @@ inline SharedPtr<T> WeakPtr<T>::lock() const
         return SharedPtr<T>(data);
     }
     return SharedPtr<T>();
+}
+
+template<typename T>
+class EnableSharedFromThis
+{
+public:
+    SharedPtr<T> sharedFromThis();
+    SharedPtr<const T> sharedFromThis() const;
+
+private:
+    void assign(typename SharedPtr<T>::Data* data);
+
+    WeakPtr<T> _sharedFromThis;
+
+    friend void _enableSharedFromThis<T>(EnableSharedFromThis<T>* that, void* data);
+};
+
+template<typename T>
+inline SharedPtr<T> EnableSharedFromThis<T>::sharedFromThis()
+{
+    return _sharedFromThis.lock();
+}
+
+template<typename T>
+inline SharedPtr<const T> EnableSharedFromThis<T>::sharedFromThis() const
+{
+    return _sharedFromThis.lock();
+}
+
+template<typename T>
+inline void EnableSharedFromThis<T>::assign(typename SharedPtr<T>::Data* data)
+{
+    _sharedFromThis.assign(data);
 }
 
 } // namespace nonatomic
