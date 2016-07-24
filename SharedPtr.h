@@ -136,6 +136,7 @@ private:
 template<typename T>
 SharedPtrPoolScope<T>::~SharedPtrPoolScope()
 {
+    assert(pool->count > 0);
     if (!--pool->count) {
         delete pool;
     }
@@ -151,10 +152,12 @@ SharedPtrPoolScope<T>::SharedPtrPoolScope(const SharedPtrPoolScope<T>& copy)
 template<typename T>
 SharedPtrPoolScope<T>& SharedPtrPoolScope<T>::operator=(const SharedPtrPoolScope<T>& copy)
 {
+    assert(pool->count > 0);
     if (!--pool->count)
         delete pool;
     pool = copy.pool;
     ++pool->count;
+    return *this;
 }
 
 
@@ -197,6 +200,7 @@ void SharedPtr<T>::Data::reset(Data* data)
     } else {
         SharedPtrPool<T>* pool = data->pool;
         data->~Data();
+        assert(pool->count > 0);
         if (!--pool->count)
             delete pool;
     }
@@ -261,6 +265,7 @@ SharedPtr<T>& SharedPtr<T>::operator=(const SharedPtr<T>& copy)
     clear();
     data = copy.data;
     ++data->sharedCount;
+    return *this;
 }
 
 template<typename T>
