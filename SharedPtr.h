@@ -142,6 +142,7 @@ inline void SharedPtr<T>::clear()
     Data* d = data;
     data = 0;
 
+    assert(d->sharedCount > 0);
     if (!--d->sharedCount) {
         T* ptr = d->ptr;
         d->ptr = 0;
@@ -202,9 +203,13 @@ inline void WeakPtr<T>::clear()
         data = 0;
         if (!d->sharedCount) {
             assert(!d->ptr);
+            assert(d->weakCount > 0);
             if (!--d->weakCount) {
                 delete d;
             }
+        } else {
+            assert(d->weakCount > 0);
+            --d->weakCount;
         }
     }
 }
