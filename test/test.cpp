@@ -89,7 +89,22 @@ int main(int, char**)
         }
         for (int i = 0; i < 5; ++i) {
             SharedPtr<A> ptr = ptrs[i];
-            printf("vector ptr %d: %d\n", i, ptr->a);
+            printf("vector1 ptr %d: %d\n", i, ptr->a);
+        }
+    }
+
+    {
+        std::vector<SharedPtr<A> > ptrs;
+        {
+            ptrs.reserve(5);
+            for (int i = 0; i < 5; ++i) {
+                A* a = new A(i + 200);
+                ptrs.push_back(SharedPtr<A>(a));
+            }
+        }
+        for (int i = 0; i < 5; ++i) {
+            SharedPtr<A> ptr = ptrs[i];
+            printf("vector2 ptr %d: %d\n", i, ptr->a);
         }
     }
 
