@@ -73,6 +73,7 @@ public:
     const T& operator*() const { return *data->ptr; }
 
     operator bool() const { return data->ptr != 0; }
+    bool operator!() const { return !data->ptr; }
 
     uint32_t useCount() const { return data->sharedCount; }
 
