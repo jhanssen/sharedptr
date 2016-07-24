@@ -74,6 +74,8 @@ public:
 
     operator bool() const { return data->ptr != 0; }
 
+    uint32_t useCount() const { return data->sharedCount; }
+
     static SharedPtrPoolScope<T> makePool(uint32_t num);
 
 private:
@@ -175,6 +177,8 @@ public:
 
     bool expired() const;
     SharedPtr<T> lock() const;
+
+    uint32_t useCount() const { return data ? data->sharedCount : 0; }
 
 private:
     void clear();
