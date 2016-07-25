@@ -1,0 +1,4 @@
+test/*ninja*
+test/CMake*
+test/cmake*
+test/testshared
