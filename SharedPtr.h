@@ -9,63 +9,63 @@
 namespace nonatomic {
 
 template<typename T>
-class SharedPtr;
+class shared_ptr;
 
 template<typename T>
-class WeakPtr;
+class weak_ptr;
 
 template<typename T>
-class EnableSharedFromThis;
+class enable_shared_from_this;
 
 template<typename T>
-void _enableSharedFromThis(EnableSharedFromThis<T>* that, void* data);
+void _enable_shared_from_this(enable_shared_from_this<T>* that, void* data);
 template<typename T>
-void _enableSharedFromThis(...) { }
+void _enable_shared_from_this(...) { }
 
 template<typename T>
-class SharedPtrPool;
+class shared_ptr_pool;
 
 template<typename T>
-class SharedPtrPoolScope
+class shared_ptr_pool_scope
 {
 public:
-    SharedPtrPoolScope(const SharedPtrPoolScope<T>& copy);
-    ~SharedPtrPoolScope();
+    shared_ptr_pool_scope(const shared_ptr_pool_scope<T>& copy);
+    ~shared_ptr_pool_scope();
 
-    SharedPtrPoolScope<T>& operator=(const SharedPtrPoolScope<T>& copy);
+    shared_ptr_pool_scope<T>& operator=(const shared_ptr_pool_scope<T>& copy);
 
     void* mem(uint32_t offset) const;
-    uint32_t useCount() const { return pool->count; }
+    uint32_t use_count() const { return pool->count; }
 
 private:
-    SharedPtrPoolScope(SharedPtrPool<T>* p)
+    shared_ptr_pool_scope(shared_ptr_pool<T>* p)
         : pool(p)
     {
         ++pool->count;
     }
 
-    SharedPtrPool<T>* pool;
+    shared_ptr_pool<T>* pool;
 
-    friend class SharedPtr<T>;
+    friend class shared_ptr<T>;
 };
 
 template<typename T>
-class SharedPtr
+class shared_ptr
 {
 public:
-    SharedPtr();
-    SharedPtr(T* ptr);
+    shared_ptr();
+    shared_ptr(T* ptr);
 
-    SharedPtr(const SharedPtrPoolScope<T>& scope, uint32_t poolOffset);
-    SharedPtr(const SharedPtrPoolScope<T>& scope, uint32_t poolOffset, T* ptr);
+    shared_ptr(const shared_ptr_pool_scope<T>& scope, uint32_t poolOffset);
+    shared_ptr(const shared_ptr_pool_scope<T>& scope, uint32_t poolOffset, T* ptr);
 
-    SharedPtr(const SharedPtr<T>& copy);
-    ~SharedPtr();
+    shared_ptr(const shared_ptr<T>& copy);
+    ~shared_ptr();
 
-    SharedPtr<T>& operator=(const SharedPtr<T>& copy);
+    shared_ptr<T>& operator=(const shared_ptr<T>& copy);
 
     void reset(T* ptr = 0);
-    void reset(const SharedPtrPoolScope<T>& scope, uint32_t poolOffset, T* ptr = 0);
+    void reset(const shared_ptr_pool_scope<T>& scope, uint32_t poolOffset, T* ptr = 0);
 
     T* get() { return data->ptr; }
     const T* get() const { return data->ptr; }
@@ -80,17 +80,17 @@ public:
     operator bool() const { return data->ptr != 0; }
     bool operator!() const { return !data->ptr; }
 
-    uint32_t useCount() const { return data->sharedCount; }
+    uint32_t use_count() const { return data->sharedCount; }
 
-    static SharedPtrPoolScope<T> makePool(uint32_t num);
-    static SharedPtr<T> allocate(const SharedPtrPoolScope<T>& scope, uint32_t offset);
+    static shared_ptr_pool_scope<T> make_pool(uint32_t num);
+    static shared_ptr<T> allocate(const shared_ptr_pool_scope<T>& scope, uint32_t offset);
 
 private:
     class Data
     {
     public:
         Data() : sharedCount(0), weakCount(0), ptr(0) { }
-        Data(uint32_t sc, uint32_t wc, T* p, SharedPtrPool<T>* pl = 0, uint32_t poff = 0)
+        Data(uint32_t sc, uint32_t wc, T* p, shared_ptr_pool<T>* pl = 0, uint32_t poff = 0)
             : sharedCount(sc), weakCount(wc), ptr(p), pool(pl), poolOffset(poff)
         {
         }
@@ -99,64 +99,64 @@ private:
         uint32_t weakCount;
         T* ptr;
 
-        SharedPtrPool<T>* pool;
+        shared_ptr_pool<T>* pool;
         uint32_t poolOffset;
 
         static void reset(Data* data);
     };
 
-    SharedPtr(Data* data);
+    shared_ptr(Data* data);
 
     void clear();
 
     Data* data;
 
-    friend class WeakPtr<T>;
-    friend class EnableSharedFromThis<T>;
-    friend class SharedPtrPool<T>;
-    friend void _enableSharedFromThis<T>(EnableSharedFromThis<T>* that, void* data);
+    friend class weak_ptr<T>;
+    friend class enable_shared_from_this<T>;
+    friend class shared_ptr_pool<T>;
+    friend void _enable_shared_from_this<T>(enable_shared_from_this<T>* that, void* data);
 };
 
 template<typename T>
-class WeakPtr
+class weak_ptr
 {
 public:
-    WeakPtr();
-    WeakPtr(const SharedPtr<T>& shared);
-    WeakPtr(const WeakPtr<T>& copy);
-    ~WeakPtr();
+    weak_ptr();
+    weak_ptr(const shared_ptr<T>& shared);
+    weak_ptr(const weak_ptr<T>& copy);
+    ~weak_ptr();
 
-    WeakPtr<T>& operator=(const SharedPtr<T>& copy);
-    WeakPtr<T>& operator=(const WeakPtr<T>& copy);
+    weak_ptr<T>& operator=(const shared_ptr<T>& copy);
+    weak_ptr<T>& operator=(const weak_ptr<T>& copy);
 
     bool expired() const;
-    SharedPtr<T> lock() const;
+    shared_ptr<T> lock() const;
 
-    uint32_t useCount() const { return data ? data->sharedCount : 0; }
+    uint32_t use_count() const { return data ? data->sharedCount : 0; }
 
 private:
     void clear();
 
-    void assign(typename SharedPtr<T>::Data* data);
+    void assign(typename shared_ptr<T>::Data* data);
 
-    typename SharedPtr<T>::Data* data;
+    typename shared_ptr<T>::Data* data;
 
-    friend class EnableSharedFromThis<T>;
+    friend class enable_shared_from_this<T>;
 };
 
 template<typename T>
-void _enableSharedFromThis(EnableSharedFromThis<T>* that, void* data)
+void _enable_shared_from_this(enable_shared_from_this<T>* that, void* data)
 {
-    that->assign(static_cast<typename SharedPtr<T>::Data*>(data));
+    that->assign(static_cast<typename shared_ptr<T>::Data*>(data));
 }
 
 template<typename T>
-void SharedPtr<T>::Data::reset(Data* data)
+void shared_ptr<T>::Data::reset(Data* data)
 {
     if (!data->pool) {
         delete data;
     } else {
-        SharedPtrPool<T>* pool = data->pool;
+        shared_ptr_pool<T>* pool = data->pool;
         data->~Data();
         assert(pool->count > 0);
         if (!--pool->count)
@@ -165,60 +165,60 @@ void SharedPtr<T>::Data::reset(Data* data)
 }
 
 template<typename T>
-inline SharedPtr<T>::SharedPtr()
+inline shared_ptr<T>::shared_ptr()
     : data(new Data(1, 0, 0))
 {
 }
 
 template<typename T>
-inline SharedPtr<T>::SharedPtr(const SharedPtrPoolScope<T>& scope, uint32_t poolOffset)
+inline shared_ptr<T>::shared_ptr(const shared_ptr_pool_scope<T>& scope, uint32_t poolOffset)
 {
-    SharedPtrPool<T>* pool = scope.pool;
+    shared_ptr_pool<T>* pool = scope.pool;
     data = new(pool->metaMem(poolOffset)) Data(1, 0, 0, poolOffset, pool);
     if (pool)
         ++pool->count;
 }
 
 template<typename T>
-SharedPtr<T>::SharedPtr(T* ptr)
+shared_ptr<T>::shared_ptr(T* ptr)
     : data(new Data(1, 0, ptr))
 {
-    _enableSharedFromThis<T>(ptr, data);
+    _enable_shared_from_this<T>(ptr, data);
 }
 
 template<typename T>
-SharedPtr<T>::SharedPtr(const SharedPtrPoolScope<T>& scope, uint32_t poolOffset, T* ptr)
+shared_ptr<T>::shared_ptr(const shared_ptr_pool_scope<T>& scope, uint32_t poolOffset, T* ptr)
 {
-    SharedPtrPool<T>* pool = scope.pool;
+    shared_ptr_pool<T>* pool = scope.pool;
     data = new(pool->metaMem(poolOffset)) Data(1, 0, ptr, pool, poolOffset);
     if (pool)
         ++pool->count;
 
-    _enableSharedFromThis<T>(ptr, data);
+    _enable_shared_from_this<T>(ptr, data);
 }
 
 template<typename T>
-inline SharedPtr<T>::SharedPtr(const SharedPtr<T>& copy)
+inline shared_ptr<T>::shared_ptr(const shared_ptr<T>& copy)
     : data(copy.data)
 {
     ++data->sharedCount;
 }
 
 template<typename T>
-inline SharedPtr<T>::SharedPtr(Data* data)
+inline shared_ptr<T>::shared_ptr(Data* data)
     : data(data)
 {
     ++data->sharedCount;
 }
 
 template<typename T>
-inline SharedPtr<T>::~SharedPtr()
+inline shared_ptr<T>::~shared_ptr()
 {
     clear();
 }
 
 template<typename T>
-SharedPtr<T>& SharedPtr<T>::operator=(const SharedPtr<T>& copy)
+shared_ptr<T>& shared_ptr<T>::operator=(const shared_ptr<T>& copy)
 {
     clear();
     data = copy.data;
@@ -227,7 +227,7 @@ SharedPtr<T>& SharedPtr<T>::operator=(const SharedPtr<T>& copy)
 }
 
 template<typename T>
-inline void SharedPtr<T>::clear()
+inline void shared_ptr<T>::clear()
 {
     Data* d = data;
     data = 0;
@@ -253,53 +253,53 @@ inline void SharedPtr<T>::clear()
 }
 
 template<typename T>
-inline void SharedPtr<T>::reset(T* ptr)
+inline void shared_ptr<T>::reset(T* ptr)
 {
     clear();
     data = new Data(1, 0, ptr);
-    _enableSharedFromThis<T>(ptr, data);
+    _enable_shared_from_this<T>(ptr, data);
 }
 
 template<typename T>
-inline void SharedPtr<T>::reset(const SharedPtrPoolScope<T>& scope, uint32_t poolOffset, T* ptr)
+inline void shared_ptr<T>::reset(const shared_ptr_pool_scope<T>& scope, uint32_t poolOffset, T* ptr)
 {
     clear();
-    SharedPtrPool<T>* pool = scope.pool;
+    shared_ptr_pool<T>* pool = scope.pool;
     data = new(pool->metaMem(poolOffset)) Data(1, 0, ptr, pool, poolOffset);
     if (pool)
         ++pool->count;
-    _enableSharedFromThis<T>(ptr, data);
+    _enable_shared_from_this<T>(ptr, data);
 }
 
 template<typename T>
-inline SharedPtrPoolScope<T> SharedPtr<T>::makePool(uint32_t num)
+inline shared_ptr_pool_scope<T> shared_ptr<T>::make_pool(uint32_t num)
 {
-    SharedPtrPool<T>* pool = new SharedPtrPool<T>(num);
-    return SharedPtrPoolScope<T>(pool);
+    shared_ptr_pool<T>* pool = new shared_ptr_pool<T>(num);
+    return shared_ptr_pool_scope<T>(pool);
 }
 
 template<typename T>
-SharedPtr<T> SharedPtr<T>::allocate(const SharedPtrPoolScope<T>& scope, uint32_t offset)
+shared_ptr<T> shared_ptr<T>::allocate(const shared_ptr_pool_scope<T>& scope, uint32_t offset)
 {
     T* t = new(scope.mem(offset)) T;
-    return SharedPtr<T>(scope, offset, t);
+    return shared_ptr<T>(scope, offset, t);
 }
 
 template<typename T>
-inline WeakPtr<T>::WeakPtr()
+inline weak_ptr<T>::weak_ptr()
     : data(0)
 {
 }
 
 template<typename T>
-inline WeakPtr<T>::WeakPtr(const SharedPtr<T>& shared)
+inline weak_ptr<T>::weak_ptr(const shared_ptr<T>& shared)
     : data(shared.data)
 {
     ++data->weakCount;
 }
 
 template<typename T>
-inline WeakPtr<T>::WeakPtr(const WeakPtr<T>& weak)
+inline weak_ptr<T>::weak_ptr(const weak_ptr<T>& weak)
     : data(weak.data)
 {
     if (data)
@@ -307,13 +307,13 @@ inline WeakPtr<T>::WeakPtr(const WeakPtr<T>& weak)
 }
 
 template<typename T>
-inline WeakPtr<T>::~WeakPtr()
+inline weak_ptr<T>::~weak_ptr()
 {
     clear();
 }
 
 template<typename T>
-inline void WeakPtr<T>::assign(typename SharedPtr<T>::Data* d)
+inline void weak_ptr<T>::assign(typename shared_ptr<T>::Data* d)
 {
     clear();
     data = d;
@@ -321,16 +321,16 @@ inline void WeakPtr<T>::assign(typename SharedPtr<T>::Data* d)
 }
 
 template<typename T>
-inline void WeakPtr<T>::clear()
+inline void weak_ptr<T>::clear()
 {
     if (data) {
-        typename SharedPtr<T>::Data* d = data;
+        typename shared_ptr<T>::Data* d = data;
         data = 0;
         if (!d->sharedCount) {
             assert(!d->ptr);
             assert(d->weakCount > 0);
             if (!--d->weakCount) {
-                SharedPtr<T>::Data::reset(d);
+                shared_ptr<T>::Data::reset(d);
             }
         } else {
             assert(d->weakCount > 0);
@@ -340,7 +340,7 @@ inline void WeakPtr<T>::clear()
 }
 
 template<typename T>
-inline WeakPtr<T>& WeakPtr<T>::operator=(const SharedPtr<T>& copy)
+inline weak_ptr<T>& weak_ptr<T>::operator=(const shared_ptr<T>& copy)
 {
     clear();
     data = copy.data;
@@ -349,7 +349,7 @@ inline WeakPtr<T>& WeakPtr<T>::operator=(const SharedPtr<T>& copy)
 }
 
 template<typename T>
-inline WeakPtr<T>& WeakPtr<T>::operator=(const WeakPtr<T>& copy)
+inline weak_ptr<T>& weak_ptr<T>::operator=(const weak_ptr<T>& copy)
 {
     clear();
     data = copy.data;
@@ -359,94 +359,94 @@ inline WeakPtr<T>& WeakPtr<T>::operator=(const WeakPtr<T>& copy)
 }
 
 template<typename T>
-inline bool WeakPtr<T>::expired() const
+inline bool weak_ptr<T>::expired() const
 {
     return !data || !data->ptr;
 }
 
 template<typename T>
-inline SharedPtr<T> WeakPtr<T>::lock() const
+inline shared_ptr<T> weak_ptr<T>::lock() const
 {
     if (data && data->ptr) {
         assert(data->sharedCount > 0);
-        return SharedPtr<T>(data);
+        return shared_ptr<T>(data);
     }
-    return SharedPtr<T>();
+    return shared_ptr<T>();
 }
 
 template<typename T>
-class EnableSharedFromThis
+class enable_shared_from_this
 {
 public:
-    SharedPtr<T> sharedFromThis();
-    SharedPtr<const T> sharedFromThis() const;
+    shared_ptr<T> shared_from_this();
+    shared_ptr<const T> shared_from_this() const;
 
 private:
-    void assign(typename SharedPtr<T>::Data* data);
+    void assign(typename shared_ptr<T>::Data* data);
 
-    WeakPtr<T> _sharedFromThis;
+    weak_ptr<T> _shared_from_this;
 
-    friend void _enableSharedFromThis<T>(EnableSharedFromThis<T>* that, void* data);
+    friend void _enable_shared_from_this<T>(enable_shared_from_this<T>* that, void* data);
 };
 
 template<typename T>
-inline SharedPtr<T> EnableSharedFromThis<T>::sharedFromThis()
+inline shared_ptr<T> enable_shared_from_this<T>::shared_from_this()
 {
-    return _sharedFromThis.lock();
+    return _shared_from_this.lock();
 }
 
 template<typename T>
-inline SharedPtr<const T> EnableSharedFromThis<T>::sharedFromThis() const
+inline shared_ptr<const T> enable_shared_from_this<T>::shared_from_this() const
 {
-    return _sharedFromThis.lock();
+    return _shared_from_this.lock();
 }
 
 template<typename T>
-inline void EnableSharedFromThis<T>::assign(typename SharedPtr<T>::Data* data)
+inline void enable_shared_from_this<T>::assign(typename shared_ptr<T>::Data* data)
 {
-    _sharedFromThis.assign(data);
+    _shared_from_this.assign(data);
 }
 
 template<typename T>
-class SharedPtrPool
+class shared_ptr_pool
 {
 public:
-    ~SharedPtrPool();
+    ~shared_ptr_pool();
 
 private:
-    SharedPtrPool(uint32_t sz);
+    shared_ptr_pool(uint32_t sz);
 
     void* metaMem(uint32_t pos) const
     {
-        return reinterpret_cast<char*>(data) + ((sizeof(typename SharedPtr<T>::Data) + sizeof(T)) * pos);
+        return reinterpret_cast<char*>(data) + ((sizeof(typename shared_ptr<T>::Data) + sizeof(T)) * pos);
     }
     void* mem(uint32_t pos) const
     {
-        return reinterpret_cast<char*>(data) + ((sizeof(typename SharedPtr<T>::Data) + sizeof(T)) * pos) + sizeof(typename SharedPtr<T>::Data);
+        return reinterpret_cast<char*>(data) + ((sizeof(typename shared_ptr<T>::Data) + sizeof(T)) * pos) + sizeof(typename shared_ptr<T>::Data);
     }
 
     void* data;
     uint32_t count;
 
-    friend class SharedPtr<T>;
-    friend class SharedPtrPoolScope<T>;
+    friend class shared_ptr<T>;
+    friend class shared_ptr_pool_scope<T>;
 };
 
 template<typename T>
-SharedPtrPool<T>::SharedPtrPool(uint32_t sz)
+shared_ptr_pool<T>::shared_ptr_pool(uint32_t sz)
     : count(0)
 {
-    data = malloc((sizeof(typename SharedPtr<T>::Data) + sizeof(T)) * sz);
+    data = malloc((sizeof(typename shared_ptr<T>::Data) + sizeof(T)) * sz);
 }
 
 template<typename T>
-SharedPtrPool<T>::~SharedPtrPool()
+shared_ptr_pool<T>::~shared_ptr_pool()
 {
     free(data);
 }
 
 template<typename T>
-SharedPtrPoolScope<T>::~SharedPtrPoolScope()
+shared_ptr_pool_scope<T>::~shared_ptr_pool_scope()
 {
     assert(pool->count > 0);
     if (!--pool->count) {
@@ -455,14 +455,14 @@ SharedPtrPoolScope<T>::~SharedPtrPoolScope()
 }
 
 template<typename T>
-SharedPtrPoolScope<T>::SharedPtrPoolScope(const SharedPtrPoolScope<T>& copy)
+shared_ptr_pool_scope<T>::shared_ptr_pool_scope(const shared_ptr_pool_scope<T>& copy)
     : pool(copy.pool)
 {
     ++pool->count;
 }
 
 template<typename T>
-SharedPtrPoolScope<T>& SharedPtrPoolScope<T>::operator=(const SharedPtrPoolScope<T>& copy)
+shared_ptr_pool_scope<T>& shared_ptr_pool_scope<T>::operator=(const shared_ptr_pool_scope<T>& copy)
 {
     assert(pool->count > 0);
     if (!--pool->count)
@@ -473,7 +473,7 @@ SharedPtrPoolScope<T>& SharedPtrPoolScope<T>::operator=(const SharedPtrPoolScope
 }
 
 template<typename T>
-inline void* SharedPtrPoolScope<T>::mem(uint32_t offset) const
+inline void* shared_ptr_pool_scope<T>::mem(uint32_t offset) const
 {
     return pool->mem(offset);
 }
