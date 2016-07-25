@@ -67,6 +67,11 @@ public:
     void reset(T* ptr = 0);
     void reset(const SharedPtrPoolScope<T>& scope, uint32_t poolOffset, T* ptr = 0);
 
+    T* get() { return data->ptr; }
+    const T* get() const { return data->ptr; }
+
+    //T* take() { T* ptr = 0; if (data->sharedCount == 1) { ptr = data->ptr; data->ptr = 0; reset(); } return ptr; }
+
     T* operator->() { return data->ptr; }
     const T* operator->() const { return data->ptr; }
     T& operator*() { return *data->ptr; }
