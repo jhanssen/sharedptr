@@ -34,7 +34,7 @@ public:
 
     SharedPtrPoolScope<T>& operator=(const SharedPtrPoolScope<T>& copy);
 
-    void* mem(uint32_t offset);
+    void* mem(uint32_t offset) const;
     uint32_t useCount() const { return pool->count; }
 
 private:
@@ -78,6 +78,7 @@ public:
     uint32_t useCount() const { return data->sharedCount; }
 
     static SharedPtrPoolScope<T> makePool(uint32_t num);
+    static SharedPtr<T> allocate(const SharedPtrPoolScope<T>& scope, uint32_t offset);
 
 private:
     class Data
@@ -120,11 +121,11 @@ public:
 private:
     SharedPtrPool(uint32_t sz);
 
-    void* metaMem(uint32_t pos)
+    void* metaMem(uint32_t pos) const
     {
         return reinterpret_cast<char*>(data) + ((sizeof(typename SharedPtr<T>::Data) + sizeof(T)) * pos);
     }
-    void* mem(uint32_t pos)
+    void* mem(uint32_t pos) const
     {
         return reinterpret_cast<char*>(data) + ((sizeof(typename SharedPtr<T>::Data) + sizeof(T)) * pos) + sizeof(typename SharedPtr<T>::Data);
     }
@@ -326,6 +327,13 @@ inline SharedPtrPoolScope<T> SharedPtr<T>::makePool(uint32_t num)
 }
 
 template<typename T>
+SharedPtr<T> SharedPtr<T>::allocate(const SharedPtrPoolScope<T>& scope, uint32_t offset)
+{
+    T* t = new(scope.mem(offset)) T;
+    return SharedPtr<T>(scope, offset, t);
+}
+
+template<typename T>
 inline WeakPtr<T>::WeakPtr()
     : data(0)
 {
@@ -461,7 +469,7 @@ SharedPtrPool<T>::~SharedPtrPool()
 }
 
 template<typename T>
-inline void* SharedPtrPoolScope<T>::mem(uint32_t offset)
+inline void* SharedPtrPoolScope<T>::mem(uint32_t offset) const
 {
     return pool->mem(offset);
 }
