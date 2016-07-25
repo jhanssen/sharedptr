@@ -113,59 +113,6 @@ private:
 };
 
 template<typename T>
-class SharedPtrPool
-{
-public:
-    ~SharedPtrPool();
-
-private:
-    SharedPtrPool(uint32_t sz);
-
-    void* metaMem(uint32_t pos) const
-    {
-        return reinterpret_cast<char*>(data) + ((sizeof(typename SharedPtr<T>::Data) + sizeof(T)) * pos);
-    }
-    void* mem(uint32_t pos) const
-    {
-        return reinterpret_cast<char*>(data) + ((sizeof(typename SharedPtr<T>::Data) + sizeof(T)) * pos) + sizeof(typename SharedPtr<T>::Data);
-    }
-
-    void* data;
-    uint32_t count;
-
-    friend class SharedPtr<T>;
-    friend class SharedPtrPoolScope<T>;
-};
-
-template<typename T>
-SharedPtrPoolScope<T>::~SharedPtrPoolScope()
-{
-    assert(pool->count > 0);
-    if (!--pool->count) {
-        delete pool;
-    }
-}
-
-template<typename T>
-SharedPtrPoolScope<T>::SharedPtrPoolScope(const SharedPtrPoolScope<T>& copy)
-    : pool(copy.pool)
-{
-    ++pool->count;
-}
-
-template<typename T>
-SharedPtrPoolScope<T>& SharedPtrPoolScope<T>::operator=(const SharedPtrPoolScope<T>& copy)
-{
-    assert(pool->count > 0);
-    if (!--pool->count)
-        delete pool;
-    pool = copy.pool;
-    ++pool->count;
-    return *this;
-}
-
-
-template<typename T>
 class WeakPtr
 {
 public:
@@ -456,6 +403,31 @@ inline void EnableSharedFromThis<T>::assign(typename SharedPtr<T>::Data* data)
 }
 
 template<typename T>
+class SharedPtrPool
+{
+public:
+    ~SharedPtrPool();
+
+private:
+    SharedPtrPool(uint32_t sz);
+
+    void* metaMem(uint32_t pos) const
+    {
+        return reinterpret_cast<char*>(data) + ((sizeof(typename SharedPtr<T>::Data) + sizeof(T)) * pos);
+    }
+    void* mem(uint32_t pos) const
+    {
+        return reinterpret_cast<char*>(data) + ((sizeof(typename SharedPtr<T>::Data) + sizeof(T)) * pos) + sizeof(typename SharedPtr<T>::Data);
+    }
+
+    void* data;
+    uint32_t count;
+
+    friend class SharedPtr<T>;
+    friend class SharedPtrPoolScope<T>;
+};
+
+template<typename T>
 SharedPtrPool<T>::SharedPtrPool(uint32_t sz)
     : count(0)
 {
@@ -466,6 +438,33 @@ template<typename T>
 SharedPtrPool<T>::~SharedPtrPool()
 {
     free(data);
+}
+
+template<typename T>
+SharedPtrPoolScope<T>::~SharedPtrPoolScope()
+{
+    assert(pool->count > 0);
+    if (!--pool->count) {
+        delete pool;
+    }
+}
+
+template<typename T>
+SharedPtrPoolScope<T>::SharedPtrPoolScope(const SharedPtrPoolScope<T>& copy)
+    : pool(copy.pool)
+{
+    ++pool->count;
+}
+
+template<typename T>
+SharedPtrPoolScope<T>& SharedPtrPoolScope<T>::operator=(const SharedPtrPoolScope<T>& copy)
+{
+    assert(pool->count > 0);
+    if (!--pool->count)
+        delete pool;
+    pool = copy.pool;
+    ++pool->count;
+    return *this;
 }
 
 template<typename T>
