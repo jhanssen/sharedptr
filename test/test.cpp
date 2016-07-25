@@ -12,12 +12,21 @@ public:
     {
         printf("constructing A %d\n", a);
     }
-    ~A()
+    virtual ~A()
     {
         printf("destructing A %d\n", a);
     }
 
     int a;
+};
+
+class C : public A
+{
+public:
+    C()
+        : A(-1)
+    {
+    }
 };
 
 class B
@@ -106,6 +115,12 @@ int main(int, char**)
             shared_ptr<A> ptr = ptrs[i];
             printf("vector2 ptr %d: %d\n", i, ptr->a);
         }
+    }
+
+    {
+        shared_ptr<C> c(new C);
+        shared_ptr<A> a = c;
+        //shared_ptr<B> b = c;
     }
 
     return 0;

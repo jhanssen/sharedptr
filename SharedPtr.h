@@ -17,10 +17,17 @@ class weak_ptr;
 template<typename T>
 class enable_shared_from_this;
 
+namespace internal {
 template<typename T>
 void _enable_shared_from_this(enable_shared_from_this<T>* that, void* data);
 template<typename T>
 void _enable_shared_from_this(...) { }
+template<typename From>
+void* _getData(const shared_ptr<From>& obj);
+}
+
+template<typename To, typename From>
+shared_ptr<To> static_pointer_cast(const shared_ptr<From>& input);
 
 template<typename T>
 class shared_ptr_pool;
@@ -60,15 +67,19 @@ public:
     shared_ptr(const shared_ptr_pool_scope<T>& scope, uint32_t poolOffset, T* ptr);
 
     shared_ptr(const shared_ptr<T>& copy);
+    template<typename U>
+    shared_ptr(const shared_ptr<U>& copy);
+
     ~shared_ptr();
 
     shared_ptr<T>& operator=(const shared_ptr<T>& copy);
+    template<typename U>
+    shared_ptr<T>& operator=(const shared_ptr<U>& copy);
 
     void reset(T* ptr = 0);
     void reset(const shared_ptr_pool_scope<T>& scope, uint32_t poolOffset, T* ptr = 0);
 
-    T* get() { return data->ptr; }
-    const T* get() const { return data->ptr; }
+    T* get() const { return data->ptr; }
 
     //T* take() { T* ptr = 0; if (data->sharedCount == 1) { ptr = data->ptr; data->ptr = 0; reset(); } return ptr; }
 
@@ -106,6 +117,7 @@ private:
     };
 
     shared_ptr(Data* data);
+    shared_ptr(T* ptr, Data* data);
 
     void clear();
 
@@ -114,7 +126,11 @@ private:
     friend class weak_ptr<T>;
     friend class enable_shared_from_this<T>;
     friend class shared_ptr_pool<T>;
-    friend void _enable_shared_from_this<T>(enable_shared_from_this<T>* that, void* data);
+    friend void internal::_enable_shared_from_this<T>(enable_shared_from_this<T>* that, void* data);
+    template<typename From>
+    friend void* internal::_getData(const shared_ptr<From>& obj);
+    template<typename To, typename From>
+    friend shared_ptr<To> static_pointer_cast(const shared_ptr<From>& input);
 };
 
 template<typename T>
@@ -144,10 +160,18 @@ private:
     friend class enable_shared_from_this<T>;
 };
 
+namespace internal {
 template<typename T>
 void _enable_shared_from_this(enable_shared_from_this<T>* that, void* data)
 {
     that->assign(static_cast<typename shared_ptr<T>::Data*>(data));
+}
+
+template<typename From>
+void* _getData(const shared_ptr<From>& obj)
+{
+    return obj.data;
+}
 }
 
 template<typename T>
@@ -183,7 +207,7 @@ template<typename T>
 shared_ptr<T>::shared_ptr(T* ptr)
     : data(new Data(1, 0, ptr))
 {
-    _enable_shared_from_this<T>(ptr, data);
+    internal::_enable_shared_from_this<T>(ptr, data);
 }
 
 template<typename T>
@@ -194,7 +218,7 @@ shared_ptr<T>::shared_ptr(const shared_ptr_pool_scope<T>& scope, uint32_t poolOf
     if (pool)
         ++pool->count;
 
-    _enable_shared_from_this<T>(ptr, data);
+    internal::_enable_shared_from_this<T>(ptr, data);
 }
 
 template<typename T>
@@ -205,7 +229,25 @@ inline shared_ptr<T>::shared_ptr(const shared_ptr<T>& copy)
 }
 
 template<typename T>
+template<typename U>
+inline shared_ptr<T>::shared_ptr(const shared_ptr<U>& copy)
+{
+    // this line is just here to get compilation errors for invalid casts
+    (void)static_cast<T*>(copy.get());
+    data = static_cast<Data*>(internal::_getData(copy));
+
+    ++data->sharedCount;
+}
+
+template<typename T>
 inline shared_ptr<T>::shared_ptr(Data* data)
+    : data(data)
+{
+    ++data->sharedCount;
+}
+
+template<typename T>
+inline shared_ptr<T>::shared_ptr(T* /*ptr*/, Data* data)
     : data(data)
 {
     ++data->sharedCount;
@@ -222,6 +264,17 @@ shared_ptr<T>& shared_ptr<T>::operator=(const shared_ptr<T>& copy)
 {
     clear();
     data = copy.data;
+    ++data->sharedCount;
+    return *this;
+}
+
+template<typename T>
+template<typename U>
+shared_ptr<T>& shared_ptr<T>::operator=(const shared_ptr<U>& copy)
+{
+    clear();
+    (void)static_cast<T*>(copy.get());
+    data = static_cast<Data*>(internal::_getData(copy));
     ++data->sharedCount;
     return *this;
 }
@@ -257,7 +310,7 @@ inline void shared_ptr<T>::reset(T* ptr)
 {
     clear();
     data = new Data(1, 0, ptr);
-    _enable_shared_from_this<T>(ptr, data);
+    internal::_enable_shared_from_this<T>(ptr, data);
 }
 
 template<typename T>
@@ -268,7 +321,7 @@ inline void shared_ptr<T>::reset(const shared_ptr_pool_scope<T>& scope, uint32_t
     data = new(pool->metaMem(poolOffset)) Data(1, 0, ptr, pool, poolOffset);
     if (pool)
         ++pool->count;
-    _enable_shared_from_this<T>(ptr, data);
+    internal::_enable_shared_from_this<T>(ptr, data);
 }
 
 template<typename T>
@@ -386,7 +439,7 @@ private:
 
     weak_ptr<T> _shared_from_this;
 
-    friend void _enable_shared_from_this<T>(enable_shared_from_this<T>* that, void* data);
+    friend void internal::_enable_shared_from_this<T>(enable_shared_from_this<T>* that, void* data);
 };
 
 template<typename T>
@@ -476,6 +529,13 @@ template<typename T>
 inline void* shared_ptr_pool_scope<T>::mem(uint32_t offset) const
 {
     return pool->mem(offset);
+}
+
+template<typename To, typename From>
+shared_ptr<To> static_pointer_cast(const shared_ptr<From>& input)
+{
+    To* raw = static_cast<To*>(input.get());
+    return shared_ptr<To>(raw, internal::_getData(input));
 }
 
 } // namespace nonatomic
